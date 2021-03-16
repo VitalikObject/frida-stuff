@@ -213,9 +213,8 @@ function setupMessaging() {
                 Memory.writePointer(cache.loginMessagePtr, ptr(0));
             }
 			if (messageType === 19004) {
-				var intl = Interceptor.attach(cache.check, function() {	
+				Interceptor.attach(cache.check, function() {	
 					this.context.r0 = 0x02;
-					intl.detach();
 				});
 			}
             cache.sendMessage(message);

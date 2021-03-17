@@ -228,12 +228,8 @@ function setupMessaging() {
 		var messageType = Buffer._getMessageType(headerBuffer);
 		if (messageType === 20104) {
 			skipProtection();
+			enableOfflineBattles();
 			Memory.writeInt(cache.state, 5);
-		}
-		if (messageType === 24101) {
-			Interceptor.replace(cache.battles, new NativeCallback(function(a1, a2, a3, a4, a5, a6, a7, a8, a9) {
-				cache.startOffline(a1, a2, a3, 3, 0, 0, 0, 0, 1);
-			}, 'int', ['pointer', 'pointer', 'pointer', 'int', 'int', 'int', 'char', 'int', 'char']));
 		}
 		var payloadLength = Buffer._getEncodingLength(headerBuffer);
 		var messageVersion = Buffer._getMessageVersion(headerBuffer);
@@ -259,6 +255,12 @@ function setupMessaging() {
 		Interceptor.attach(cache.check, function() {	
 			this.context.r0 = 0x02;
 		});
+	}
+	
+	function enableOfflineBattles() {
+		Interceptor.replace(cache.battles, new NativeCallback(function(a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+			cache.startOffline(a1, a2, a3, 3, a5, a6, a7, a8, a9);
+		}, 'int', ['pointer', 'pointer', 'pointer', 'int', 'int', 'int', 'char', 'int', 'char']));
 	}
 	
 	Interceptor.attach(Module.findExportByName('libc.so', 'pthread_cond_signal'), {

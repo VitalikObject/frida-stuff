@@ -12,6 +12,7 @@ var WAKEUP_RETURN_ARRAY = [0xCAAB4, 0xE00C0, 0x14345C, 0x36FF6C, 0x452320, 0x54B
 var PTHREAD_COND_WAKE_RETURN = 0x87357A + 8 + 1; // Messaging::WakeUp sub_address
 var CREATE_MESSAGE_BY_TYPE = 0x473C18; // 'createMessageByType' function address // 30000
 var SELECT_RETURN = 0x4f2298; // x-ref select function
+var OFFLINE_BATTLES = 0x47CBEC;
 var CHECK = 0x66ED08;
 var POINTER_SIZE = 4;
 
@@ -27,9 +28,13 @@ var inet_addr = new NativeFunction(Module.findExportByName('libc.so', 'inet_addr
 var libc_send = new NativeFunction(Module.findExportByName('libc.so', 'send'), 'int', ['int', 'pointer', 'int', 'int']);
 var libc_recv = new NativeFunction(Module.findExportByName('libc.so', 'recv'), 'int', ['int', 'pointer', 'int', 'int']);
 
+
+
 Interceptor.replace(base.add(0x1334C0), new NativeCallback(function() {
 	Interceptor.revert(base.add(0x1334C0));
 }, 'void', []));
+
+
 
 // logic helpers
 var Message = {
@@ -175,6 +180,7 @@ function setupMessaging() {
 	cache.serverConnection = Memory.readPointer(base.add(SERVER_CONNECTION));
 	cache.selectReturn = base.add(SELECT_RETURN);
 	cache.check = base.add(CHECK);
+	cache.battles = base.add(OFFLINE_BATTLES);
 	cache.messaging = Memory.readPointer(cache.serverConnection.add(4));
 	cache.messageFactory = Memory.readPointer(cache.messaging.add(52));
 	cache.recvQueue = cache.messaging.add(60);
@@ -184,6 +190,7 @@ function setupMessaging() {
 
 	cache.newOperator = new NativeFunction(base.add(NEW_OPERATOR), 'pointer', ['int']);
 	cache.createMessageByType = new NativeFunction(base.add(CREATE_MESSAGE_BY_TYPE), 'pointer', ['pointer', 'int']);
+	cache.startOffline = new NativeFunction(cache.battles, 'int', ['pointer', 'pointer', 'pointer', 'int', 'int', 'int', 'char', 'int', 'char']);
 
 	cache.sendMessage = function (message) {
 		Message._encode(message);
@@ -204,12 +211,14 @@ function setupMessaging() {
 		var message = MessageQueue._dequeue(cache.sendQueue);
 		while (message) {
 			var messageType = Message._getMessageType(message);
-			if (messageType === 10100) {
-				message = Memory.readPointer(cache.loginMessagePtr);
-				Memory.writePointer(cache.loginMessagePtr, ptr(0));
+			if (messageType !== 14103) {
+				if (messageType === 10100) {
+					message = Memory.readPointer(cache.loginMessagePtr);
+					Memory.writePointer(cache.loginMessagePtr, ptr(0));
+				}
+				cache.sendMessage(message);
+				message = MessageQueue._dequeue(cache.sendQueue);
 			}
-			cache.sendMessage(message);
-			message = MessageQueue._dequeue(cache.sendQueue);
 		}
 	}
 
@@ -220,6 +229,11 @@ function setupMessaging() {
 		if (messageType === 20104) {
 			skipProtection();
 			Memory.writeInt(cache.state, 5);
+		}
+		if (messageType === 24101) {
+			Interceptor.replace(cache.battles, new NativeCallback(function(a1, a2, a3, a4, a5, a6, a7, a8, a9) {
+				cache.startOffline(a1, a2, a3, 3, 0, 0, 0, 0, 1);
+			}, 'int', ['pointer', 'pointer', 'pointer', 'int', 'int', 'int', 'char', 'int', 'char']));
 		}
 		var payloadLength = Buffer._getEncodingLength(headerBuffer);
 		var messageVersion = Buffer._getMessageVersion(headerBuffer);

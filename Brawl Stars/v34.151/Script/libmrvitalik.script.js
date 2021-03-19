@@ -211,14 +211,12 @@ function setupMessaging() {
 		var message = MessageQueue._dequeue(cache.sendQueue);
 		while (message) {
 			var messageType = Message._getMessageType(message);
-			if (messageType !== 14103) {
-				if (messageType === 10100) {
-					message = Memory.readPointer(cache.loginMessagePtr);
-					Memory.writePointer(cache.loginMessagePtr, ptr(0));
-				}
-				cache.sendMessage(message);
-				message = MessageQueue._dequeue(cache.sendQueue);
+			if (messageType === 10100) {
+				message = Memory.readPointer(cache.loginMessagePtr);
+				Memory.writePointer(cache.loginMessagePtr, ptr(0));
 			}
+			cache.sendMessage(message);
+			message = MessageQueue._dequeue(cache.sendQueue);
 		}
 	}
 
